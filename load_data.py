@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset
-from data_preprocessing import resample_data, process_features, replace_invalid, CIC_2018, USB_2021
+from utils.data_preprocessing import resample_data, process_features, replace_invalid, CIC_2018, USB_2021
 
-def load_data(name, data_path, pkl_path):
+def load_datasets(name, data_path, pkl_path):
     all_data = None
     all_labels = []
     all_invalid = 0
@@ -65,7 +65,7 @@ def load_data(name, data_path, pkl_path):
     return data_train, data_test, labels_train, labels_test
 
 def load_pytorch_datasets(name, data_path, pkl_path=None):
-    data_train, data_test, labels_train, labels_test = load_data(name, data_path, pkl_path)
+    data_train, data_test, labels_train, labels_test = load_datasets(name, data_path, pkl_path)
     data_train = torch.tensor(data_train)
     data_test = torch.tensor(data_test)
 
@@ -106,7 +106,7 @@ def main():
     #     data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris', 
     #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl'
     # )
-    load_data(
+    load_datasets(
         name=USB_2021, 
         data_path='/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021/Hulk-Slowloris', 
         pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2018.pkl'

@@ -9,7 +9,7 @@ from imblearn.under_sampling import RandomUnderSampler
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from collections import Counter
-from compare_features import get_attribute_map
+from utils.compare_features import get_attribute_map
 
 CIC_2018 = 'cic-2018'
 USB_2021 = 'usb-2021'
