@@ -20,7 +20,7 @@ def process_features(dset, df):
     if dset == USB_2021:
         attribute_map = get_attribute_map()
         df = df.rename(columns=attribute_map, errors='raise')
-        df['Label'] = df['Label'].replace('BENIGN', 'Benign')
+        df['Label'] = df['Label'].replace('BENIGN', 'Benign')  # Benign labels need to be accessed by name later for undersampling
 
     attack = df.loc[df['Label'].str.contains('hulk|slowloris', case=False)].copy()  # Only get hulk/slowloris attacks
     benign = df.loc[df['Label'].str.contains('benign', case=False)].copy()  # Get all benign traffic
@@ -59,11 +59,11 @@ def process_features(dset, df):
     # Destination port frequency encoding with aggregation
     print('destination port aggregate frequency encoding...')
     le2 = LabelEncoder()
-    agg_dport, agg_unique_dport = cumulatively_categorise(data['Dst Port'], threshold=0.90)
-    le_agg_dport = le2.fit_transform(agg_dport)
-    le_agg_dport = pd.Series(le_agg_dport, name='Dst Port')
+    le_dport = le2.fit_transform(data['Dst Port'])
+    le_dport = pd.Series(le_dport, name='Dst Port')
+    agg_dport, agg_unique_dport = cumulatively_categorise(le_dport, threshold=0.50)
 
-    # print('aggregate one-hot encoding')
+    # print('one-hot encoding')
     # dport_dict = {}
     # for dport in np.unique(le_agg_dport):
     #     dport_dict[dport] = 'Port ' + str(le.inverse_transform([dport])[0])
@@ -74,7 +74,7 @@ def process_features(dset, df):
     # ohe_agg_dport = pd.DataFrame(ohe_agg_dport).rename(columns=dport_dict)
 
     data = data.drop('Dst Port', axis=1)
-    data = data.join(le_agg_dport)
+    data = data.join(agg_dport)
 
     return data, labels
 
@@ -98,10 +98,10 @@ def cumulatively_categorise(column,threshold=0.90,return_categories_list=True):
         if s>=threshold_value:
             break
     #Append the category Other to the list
-    categories_list.append('Other')
+    categories_list.append('100000')
 
     #Replace all instances not in our new categories by Other  
-    new_column=column.apply(lambda x: x if x in categories_list else 'Other')
+    new_column=column.apply(lambda x: x if x in categories_list else '100000')
 
     #Return transformed column and unique values if return_categories=True
     if(return_categories_list):
