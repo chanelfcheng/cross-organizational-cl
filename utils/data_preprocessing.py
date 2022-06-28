@@ -14,10 +14,10 @@ from utils.compare_features import get_attribute_map
 CIC_2018 = 'cic-2018'
 USB_2021 = 'usb-2021'
 
-def process_features(name, df):
+def process_features(dset, df):
     print('Processing features...')
     # Rename attribute and benign label names to be consistent with CIC 2018 dataset
-    if name == USB_2021:
+    if dset == USB_2021:
         attribute_map = get_attribute_map()
         df = df.rename(columns=attribute_map, errors='raise')
         df['Label'] = df['Label'].replace('BENIGN', 'Benign')
@@ -40,16 +40,14 @@ def process_features(name, df):
     if 'Dst IP' in data:
         data = data.drop('Dst IP', axis=1)
 
-    # Data encoders
-    le = LabelEncoder()
-    ohe = OneHotEncoder(sparse=False)
-
     # Protocol one-hot encoding
     print('protocol one-hot encoding...')
-    le_protocol = le.fit_transform(data['Protocol'])
+    le1 = LabelEncoder()
+    le_protocol = le1.fit_transform(data['Protocol'])
 
     le_protocol = le_protocol.reshape(len(le_protocol), 1)
-    ohe_protocol = ohe.fit_transform(le_protocol)
+    ohe1 = OneHotEncoder(sparse=False)
+    ohe_protocol = ohe1.fit_transform(le_protocol)
     ohe_protocol = pd.DataFrame(ohe_protocol).rename(columns={0:'Protocol 0', 1:'Protocol 6', 2:'Protocol 17'})
     
     data.reset_index(drop=True, inplace=True)
@@ -60,8 +58,9 @@ def process_features(name, df):
 
     # Destination port frequency encoding with aggregation
     print('destination port aggregate frequency encoding...')
+    le2 = LabelEncoder()
     agg_dport, agg_unique_dport = cumulatively_categorise(data['Dst Port'], threshold=0.90)
-    le_agg_dport = le.fit_transform(agg_dport)
+    le_agg_dport = le2.fit_transform(agg_dport)
     le_agg_dport = pd.Series(le_agg_dport, name='Dst Port')
 
     # print('aggregate one-hot encoding')
@@ -148,7 +147,7 @@ def replace_invalid(data, labels):
 
     return data, labels, num_invalid
 
-def resample_data(name, data, labels):
+def resample_data(dset, data, labels):
     class_samples = {}
     orig_samples = len(labels)
     for label in labels:
@@ -156,7 +155,7 @@ def resample_data(name, data, labels):
             class_samples[label] = 1
         else:
             class_samples[label] += 1
-    save_class_hist(class_samples, 'orig_dist_' + name)
+    save_class_hist(class_samples, 'orig_dist_' + dset)
 
     # Undersample Benign Data to 2x greater than next largest class
     benign_num = class_samples['Benign']
@@ -179,7 +178,7 @@ def resample_data(name, data, labels):
             class_samples[label] = 1
         else:
             class_samples[label] += 1
-    save_class_hist(class_samples, 'after_undersampling_' + name)
+    save_class_hist(class_samples, 'after_undersampling_' + dset)
 
     # # Drop extreme minority classes
     # min_class_count = 0.01 * class_samples['Benign']
@@ -220,7 +219,7 @@ def resample_data(name, data, labels):
             class_samples[label] = 1
         else:
             class_samples[label] += 1
-    save_class_hist(class_samples, 'after_oversampling_' + name)
+    save_class_hist(class_samples, 'after_oversampling_' + dset)
     print('Total Data values: %d' % orig_samples)
 
     return data, labels
@@ -273,15 +272,22 @@ def save_class_hist(samples_dict: dict, name: str):
     plt.savefig(os.path.join('./out/', '%s.png' % name))  # TODO: Update to use specified output directory
     plt.clf()
 
-def normalize(array):
+def normalize(data):
     """
     Will normalize each column of a numpy array between 0-1 using the min-max method
     :param array: The data array
     :return: the normalized data
     """
 
-    min = np.amin(array, axis=0)
-    array -= min
-    max = np.amax(array, axis=0)
-    array /= (max - min + 1e-3)
-    return array
+    min = np.amin(data, axis=0)
+    max = np.amax(data, axis=0)
+    data -= min
+    data /= (max - min + 1e-3)
+    return data
+
+def normalize_percentile(data):
+    low = np.percentile(data, 5, axis=0)
+    high = np.percentile(data, 95, axis=0)
+    data -= low
+    data /= (high - low + 1e-3)
+    return data

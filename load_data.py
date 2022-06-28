@@ -8,10 +8,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from torch.utils.data import TensorDataset
-from utils.data_preprocessing import resample_data, process_features, replace_invalid, CIC_2018, USB_2021
+from utils.data_preprocessing import process_features, replace_invalid, resample_data, CIC_2018, USB_2021
 
-def load_datasets(name, data_path, pkl_path):
+def load_datasets(dset, data_path, pkl_path):
     all_data = None
     all_labels = []
     all_invalid = 0
@@ -25,13 +26,13 @@ def load_datasets(name, data_path, pkl_path):
             reader = pd.read_csv(file, dtype=str, chunksize=10**6, skipinitialspace=True)  # Read in data from csv file
 
             for df in reader:
-                data, labels = process_features(name, df)
+                data, labels = process_features(dset, df)
 
                 # Convert dataframe to numpy array for processing
                 data_np = np.array(data.to_numpy(), dtype=float)
                 labels_lst = labels.tolist()
 
-                data_np, labels_lst, num_invalid = replace_invalid(data_np, labels_lst)  # Clean the data
+                data_np, labels_lst, num_invalid = replace_invalid(data_np, labels_lst)  # Clean data of invalid values
 
                 # Combine all data, labels, and number of invalid values
                 if all_data is None:
@@ -50,13 +51,18 @@ def load_datasets(name, data_path, pkl_path):
         # Save histogram of cleaned data
         axs = pd.DataFrame(all_data, columns=data.columns.values.tolist()).hist(figsize=(30,30))
         plt.tight_layout()
-        plt.savefig(name + '-hist.png')
+        plt.savefig(dset + '-hist.png')
 
         # Perform train/test split of 80-20
         data_train, data_test, labels_train, labels_test = train_test_split(all_data, all_labels, test_size=0.2)
 
         # Resample data to reduce class imbalance
-        data_train, labels_train = resample_data(name, data_train, labels_train)
+        data_train, labels_train = resample_data(dset, data_train, labels_train)
+
+        # Normalize train and test data except for categorical
+        scale = MinMaxScaler().fit(data_train[:,:-4])
+        data_train = scale.transform(data_train[:,:-4])
+        data_test = scale.transform(data_test[:,:-4])
 
         # Save to pickle file
         with open(pkl_path, 'wb') as file:
@@ -64,8 +70,8 @@ def load_datasets(name, data_path, pkl_path):
         
     return data_train, data_test, labels_train, labels_test
 
-def load_pytorch_datasets(name, data_path, pkl_path=None):
-    data_train, data_test, labels_train, labels_test = load_datasets(name, data_path, pkl_path)
+def load_pytorch_datasets(dset, data_path, pkl_path=None):
+    data_train, data_test, labels_train, labels_test = load_datasets(dset, data_path, pkl_path)
     data_train = torch.tensor(data_train)
     data_test = torch.tensor(data_test)
 
@@ -102,12 +108,12 @@ def load_pytorch_datasets(name, data_path, pkl_path=None):
 
 def main():
     # load_data(
-    #     name=CIC_2018, 
+    #     dset=CIC_2018, 
     #     data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris', 
     #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl'
     # )
     load_datasets(
-        name=USB_2021, 
+        dset=USB_2021, 
         data_path='/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021/Hulk-Slowloris', 
         pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2018.pkl'
     )

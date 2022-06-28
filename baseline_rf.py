@@ -24,7 +24,7 @@ def main():
     print(args.dset)
     print(args.data_path)
     print(args.pkl_path)
-    data_train, data_test, labels_train, labels_test = load_datasets(name=args.dset, data_path=args.data_path, pkl_path=args.pkl_path)
+    data_train, data_test, labels_train, labels_test = load_datasets(dset=args.dset, data_path=args.data_path, pkl_path=args.pkl_path)
 
     print('\n\n-----------------------------------------------------------\n')
     print('Fitting RF Model')
