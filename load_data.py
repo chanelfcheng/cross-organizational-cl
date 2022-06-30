@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import torch
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
+from scipy.stats.mstats import winsorize
 from torch.utils.data import TensorDataset
 from utils.data_preprocessing import process_features, replace_invalid, resample_data, CIC_2018, USB_2021
 
@@ -60,10 +61,10 @@ def load_datasets(dset, data_path, pkl_path):
         data_train, labels_train = resample_data(dset, data_train, labels_train)
 
         # Normalize train and test data except for categorical
-        scale = MinMaxScaler().fit(data_train[:,:-4])
+        scale = RobustScaler(quantile_range=(5,95)).fit(data_train[:,:-4])
         data_train = scale.transform(data_train[:,:-4])
         data_test = scale.transform(data_test[:,:-4])
-
+        
         # Save to pickle file
         with open(pkl_path, 'wb') as file:
             pickle.dump((data_train, data_test, labels_train, labels_test), file)

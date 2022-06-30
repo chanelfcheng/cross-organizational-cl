@@ -61,7 +61,7 @@ def process_features(dset, df):
     le2 = LabelEncoder()
     le_dport = le2.fit_transform(data['Dst Port'])
     le_dport = pd.Series(le_dport, name='Dst Port')
-    agg_dport, agg_unique_dport = cumulatively_categorise(le_dport, threshold=0.50)
+    agg_dport, agg_unique_dport = cumulatively_categorise(le_dport, threshold=0.90)
 
     # print('one-hot encoding')
     # dport_dict = {}
