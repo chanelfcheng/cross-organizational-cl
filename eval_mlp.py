@@ -14,11 +14,131 @@ from tqdm import tqdm
 import mlp
 from load_data import load_pytorch_datasets, CIC_2018, USB_2021
 
+def eval_setup(pretrained_path, args):
+    """
+    Setup the data objects to evaluate the specified MLP model
+    :param pretrained_path: Path to the pretrained model weights
+    :param args: The command line arguments
+    :return: None
+    """
+
+    batch_size = args.batch_size
+
+    # Load dataset
+    _, eval_dataset = load_pytorch_datasets(args.dset, args.data_path, pkl_path=args.pkl_path)
+    sampler = RandomSampler(eval_dataset)  # RandomSample for more balance for t-SNE
+
+    dataloader = torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size, sampler=sampler,
+                                             num_workers=20)
+    class_names = eval_dataset.classes.copy()
+    num_classes = len(class_names)
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    # Initialize Model
+    model = mlp.MLP(77, num_classes, embeddings=args.tsne)
+
+    model.load_state_dict(torch.load(pretrained_path))
+
+    model = model.to(device)
+
+    out_path = os.path.join('output', args.name)
+    eval_model(model, dataloader, device, out_path, tsne=args.tsne, tsne_percent=args.tsne_percent)
+
+
+def eval_model(model, dataloader, device, out_path=None, tsne=False, tsne_percent=0.01):
+    """
+    Evaluate the given model
+    :param model: The MLP model
+    :param dataloader: Dataloader for the evaluation data
+    :param device: string for the specified device to perform computation
+    :param out_path: Path to the output dir to save information
+    :param tsne: Boolean flag on whether to perform TSNE visualization
+    :param tsne_percent: The percentage of evaluation data to plot for TSNE
+    :return: The f1-score and accuracy
+    """
+    model.eval()  # Set model to evaluate mode
+    start_test = True
+
+    # Iterate over data.
+    if tsne:
+        max_iter = math.floor(len(dataloader) * tsne_percent)
+    else:
+        max_iter = len(dataloader) + 5
+    iterator = tqdm(dataloader, file=sys.stdout)
+    for idx, (inputs, labels) in enumerate(iterator):
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+
+        if tsne:
+            outputs, feat_embeddings = model(inputs.float())
+        else:
+            outputs = model(inputs.float())
+        _, preds = torch.max(outputs, 1)
+
+        # statistics
+        if start_test:
+            all_preds = preds.float().cpu()
+            all_labels = labels.float()
+            if tsne:
+                embeddings = feat_embeddings.float().cpu().detach().numpy()
+            start_test = False
+        else:
+            all_preds = torch.cat((all_preds, preds.float().cpu()), 0)
+            all_labels = torch.cat((all_labels, labels.float()), 0)
+            if tsne:
+                embeddings = np.concatenate([embeddings, feat_embeddings.detach().cpu().numpy()], axis=0)
+
+        if idx > max_iter:
+            break
+
+    all_labels = all_labels.detach().cpu().numpy()
+    all_preds = all_preds.detach().cpu().numpy()
+    top1_acc = accuracy_score(all_labels, all_preds)
+    val_f1_score = f1_score(all_labels, all_preds,
+                            average='macro')
+
+    if out_path is not None:
+        plt.clf()
+        cf_matrix = confusion_matrix(all_labels, all_preds)
+        cf_matrix = cf_matrix.astype('float') / cf_matrix.sum(axis=1)[:, np.newaxis]
+        acc = cf_matrix.diagonal() / cf_matrix.sum(axis=1) * 100
+        disp = ConfusionMatrixDisplay.from_predictions(all_labels, all_preds,
+                                                       display_labels=dataloader.dataset.classes, values_format='0.2f',
+                                                       normalize='true', xticks_rotation='vertical')
+        disp.plot(values_format='0.2f', xticks_rotation='vertical')
+        plt.title('CF acc=%.2f%%' % top1_acc)
+        # plt.tight_layout()
+        plt.savefig(os.path.join(out_path, 'cf.png'))
+        plt.clf()
+
+    if tsne:
+        tsne = TSNE(2, verbose=1)
+        tsne_proj = tsne.fit_transform(embeddings)
+
+        plt.clf()
+        fig, ax = plt.subplots(figsize=(8, 8))
+        num_categories = len(dataloader.dataset.classes)
+        for lab in range(num_categories):
+            indices = all_labels == lab
+            ax.scatter(tsne_proj[indices, 0], tsne_proj[indices, 1], label=dataloader.dataset.classes[lab],
+                       alpha=0.5)
+        ax.legend(fontsize='large', markerscale=2)
+        plt.title('TSNE acc=%.2f%%' % acc.mean())
+        plt.savefig(os.path.join(out_path, 'tsne.png'))
+        plt.clf()
+
+    print('Top-1 Acc: {:.4f} F1 Score: {:.4f}'.format(top1_acc, val_f1_score))
+    log_str = classification_report(all_labels, all_preds, target_names=dataloader.dataset.classes, digits=4)
+    print(log_str)
+    return val_f1_score, top1_acc
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-path', type=str, required=True, help='Path to the pretrained weights')
-    parser.add_argument('--data-path', type=str, required=True, help='Path to the dataset files')
-    parser.add_argument('--dset', required=True, choices=[CIC_2017, CIC_2018], help='Specify which dataset to use for'
+    parser.add_argument('--data-root', type=str, required=True, help='Path to the dataset files')
+    parser.add_argument('--dset', required=True, choices=[CIC_2018, USB_2021], help='Specify which dataset to use for'
                                                                                     'evaluation')
     parser.add_argument('--batch-size', type=int, required=True, help='The batch size to use for evaluation')
     parser.add_argument('--name', type=str, default='debug', help='Unique name used for saving output files')

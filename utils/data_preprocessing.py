@@ -9,112 +9,103 @@ from imblearn.under_sampling import RandomUnderSampler
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from collections import Counter
-from utils.compare_features import get_attribute_map
+from utils.compare_features import get_feature_map
 
+# Datasets used
 CIC_2018 = 'cic-2018'
 USB_2021 = 'usb-2021'
 
+# Encoder for benign/attack labels
+le = LabelEncoder()
+le.fit(['Benign', 'DoS-Hulk', 'DoS-Slowloris'])  # Known labels
+
+# Encoder for protocol feature
+ohe1 = OneHotEncoder(sparse=False)
+ohe1.fit(np.array(['0', '6', '17']).reshape(-1,1))  # Most common protocols
+
+# Encoder for destination port feature
+ohe2 = OneHotEncoder(sparse=False)
+ohe2.fit(np.array(['dns', 'http', 'https', 'wbt', 'smb', 'ftp', 'ssh',  'llmnr', 'other']).reshape(-1,1))  # Most common port services
+
 def process_features(dset, df):
     print('Processing features...')
-    # Rename attribute and benign label names to be consistent with CIC 2018 dataset
-    if dset == USB_2021:
-        attribute_map = get_attribute_map()
-        df = df.rename(columns=attribute_map, errors='raise')
-        df['Label'] = df['Label'].replace('BENIGN', 'Benign')  # Benign labels need to be accessed by name later for undersampling
+    # Rename label names to be consistent across datasets
+    # TODO: Write custom function for encoding labels (including case for 'unknown')
+    df.loc[df['Label'].str.contains('benign', case=False), 'Label'] = 'Benign'
+    df.loc[df['Label'].str.contains('hulk', case=False), 'Label'] = 'DoS-Hulk' 
+    df.loc[df['Label'].str.contains('slowloris', case=False), 'Label'] = 'DoS-Slowloris'
 
     attack = df.loc[df['Label'].str.contains('hulk|slowloris', case=False)].copy()  # Only get hulk/slowloris attacks
     benign = df.loc[df['Label'].str.contains('benign', case=False)].copy()  # Get all benign traffic
 
-    data = pd.concat([attack, benign]).drop(['Label'], axis=1)  # Concatenate attack/benign and separate label from data
+    features = pd.concat([attack, benign]).drop(['Label'], axis=1)  # Concatenate attack/benign and separate label from features
     labels = pd.concat([attack, benign])['Label']  # Save labels by themselves
 
     # Remove unused columns if present
-    if 'Timestamp' in data:
-        data = data.drop('Timestamp', axis=1)
-    if 'Flow ID' in data:
-        data = data.drop('Flow ID', axis=1)
-    if 'Src IP' in data:
-        data = data.drop('Src IP', axis=1)
-    if 'Src Port' in data:
-        data = data.drop('Src Port', axis=1)
-    if 'Dst IP' in data:
-        data = data.drop('Dst IP', axis=1)
+    if 'Timestamp' in features:
+        features = features.drop('Timestamp', axis=1)
+    if 'Flow ID' in features:
+        features = features.drop('Flow ID', axis=1)
+    if 'Src IP' in features:
+        features = features.drop('Src IP', axis=1)
+    if 'Src Port' in features:
+        features = features.drop('Src Port', axis=1)
+    if 'Dst IP' in features:
+        features = features.drop('Dst IP', axis=1)
+
+    # Reset dataframe indexing
+    features.reset_index(drop=True, inplace=True)
+    labels.reset_index(drop=True, inplace=True)
 
     # Protocol one-hot encoding
     print('protocol one-hot encoding...')
-    le1 = LabelEncoder()
-    le_protocol = le1.fit_transform(data['Protocol'])
-
-    le_protocol = le_protocol.reshape(len(le_protocol), 1)
-    ohe1 = OneHotEncoder(sparse=False)
-    ohe_protocol = ohe1.fit_transform(le_protocol)
-    ohe_protocol = pd.DataFrame(ohe_protocol).rename(columns={0:'Protocol 0', 1:'Protocol 6', 2:'Protocol 17'})
+    ohe_protocol = ohe1.transform(features['Protocol'].values.reshape(-1,1))
+    ohe_protocol = pd.DataFrame(ohe_protocol, columns=ohe1.get_feature_names_out(['Protocol']))
     
-    data.reset_index(drop=True, inplace=True)
-    labels.reset_index(drop=True, inplace=True)
+    features = features.drop('Protocol', axis=1)
+    features = features.join(ohe_protocol)
 
-    data = data.drop('Protocol', axis=1)
-    data = data.join(ohe_protocol)
+    # Destination port mapping
+    print('destination port mapping...')
+    map_ports(features, 'Dst Port')
 
-    # Destination port frequency encoding with aggregation
-    print('destination port aggregate frequency encoding...')
-    le2 = LabelEncoder()
-    le_dport = le2.fit_transform(data['Dst Port'])
-    le_dport = pd.Series(le_dport, name='Dst Port')
-    agg_dport, agg_unique_dport = cumulatively_categorise(le_dport, threshold=0.90)
+    # Destination port one-hot encoding
+    print('destination port one-hot encoding...')
+    ohe_dport = ohe2.transform(features['Dst Port'].values.reshape(-1,1))
+    ohe_dport = pd.DataFrame(ohe_dport, columns=ohe2.get_feature_names_out(['Port']))
 
-    # print('one-hot encoding')
-    # dport_dict = {}
-    # for dport in np.unique(le_agg_dport):
-    #     dport_dict[dport] = 'Port ' + str(le.inverse_transform([dport])[0])
+    features = features.drop('Dst Port', axis=1)
+    features = features.join(ohe_dport)
 
-    # le_agg_dport = le_agg_dport.reshape(len(le_agg_dport), 1)
-    # print(dport_dict)
-    # ohe_agg_dport = ohe.fit_transform(le_agg_dport)
-    # ohe_agg_dport = pd.DataFrame(ohe_agg_dport).rename(columns=dport_dict)
+    return features, labels
 
-    data = data.drop('Dst Port', axis=1)
-    data = data.join(agg_dport)
+def map_ports(features, feature_name):
+    dns = features[feature_name] == '53'
+    http = (features[feature_name] == '80') | (features[feature_name] == '8080')
+    https = (features[feature_name] == '443') | (features[feature_name] == '8443')
+    wbt = features[feature_name] == '3389'
+    smb = (features[feature_name] == '445') | (features[feature_name] == '139') | (features[feature_name] == '137')
+    ftp = (features[feature_name] == '20') | (features[feature_name] == '21')
+    ssh = features[feature_name] == '22'
+    llmnr = features[feature_name] == '5535'
+    other = ~(http | https | ftp | ssh | dns | smb | wbt | llmnr)
 
-    return data, labels
+    features.loc[dns, feature_name] = 'dns'
+    features.loc[http, feature_name] = 'http'
+    features.loc[https, feature_name] = 'https'
+    features.loc[wbt, feature_name] = 'wbt'
+    features.loc[smb, feature_name] = 'smb'
+    features.loc[ftp, feature_name] = 'ftp'
+    features.loc[ssh, feature_name] = 'ssh'
+    features.loc[llmnr, feature_name] = 'llmnr'
+    features.loc[other, feature_name] = 'other'
 
-def cumulatively_categorise(column,threshold=0.90,return_categories_list=True):
-    #Find the threshold value using the percentage and number of instances in the column
-    threshold_value=int(threshold*len(column))
-    #Initialise an empty list for our new minimised categories
-    categories_list=[]
-    #Initialise a variable to calculate the sum of frequencies
-    s=0
-    #Create a counter dictionary of the form unique_value: frequency
-    counts=Counter(column)
 
-    #Loop through the category name and its corresponding frequency after sorting the categories by descending order of frequency
-    for i,j in counts.most_common():
-        #Add the frequency to the global sum
-        s+=dict(counts)[i]
-        #Append the category name to the list
-        categories_list.append(i)
-        #Check if the global sum has reached the threshold value, if so break the loop
-        if s>=threshold_value:
-            break
-    #Append the category Other to the list
-    categories_list.append('100000')
-
-    #Replace all instances not in our new categories by Other  
-    new_column=column.apply(lambda x: x if x in categories_list else '100000')
-
-    #Return transformed column and unique values if return_categories=True
-    if(return_categories_list):
-        return new_column,categories_list
-    #Return only the transformed column if return_categories=False
-    else:
-        return new_column
-
-def replace_invalid(data, labels):
+def replace_invalid(features, labels):
     """
     Cleans the data array.  The effect is to remove NaN and Inf values by using a nearest neighbor approach.
     Data deemed to be invalid will also be adjusted to the nearest valid value
-    :param data: The data array
+    :param features: The data array of features
     :param labels: List of the labels for each sample from the data array
     :return: the processed data array
     """
@@ -133,21 +124,21 @@ def replace_invalid(data, labels):
         for i in range(len(labels)):
             if labels[i] == label:
                 index[i] = True
-        class_data = data[index, :]
+        class_data = features[index, :]
         class_avg[label] = np.average(np.ma.masked_invalid(class_data), axis=0)
 
-    for flow_idx in tqdm(range(data.shape[0]), file=sys.stdout, desc='Cleaning data array...'):
+    for flow_idx in tqdm(range(features.shape[0]), file=sys.stdout, desc='Cleaning data array...'):
         label = labels[flow_idx]
-        for attribute_idx in range(data.shape[1]):
-            data_val = data[flow_idx, attribute_idx]
+        for feature_idx in range(features.shape[1]):
+            data_val = features[flow_idx, feature_idx]
             if np.isnan(data_val) or np.isinf(data_val):
-                data[flow_idx, attribute_idx] = class_avg[label][attribute_idx]
+                features[flow_idx, feature_idx] = class_avg[label][feature_idx]
                 num_invalid += 1
     print('Updated %d invalid values' % num_invalid)
 
-    return data, labels, num_invalid
+    return features, labels, num_invalid
 
-def resample_data(dset, data, labels):
+def resample_data(dset, features, labels):
     class_samples = {}
     orig_samples = len(labels)
     for label in labels:
@@ -167,7 +158,7 @@ def resample_data(dset, data, labels):
     if target_benign < benign_num:
         print('Reducing Benign data from %d to %d samples' % (benign_num, target_benign))
         undersampler = RandomUnderSampler(sampling_strategy={'Benign': target_benign})
-        data, labels = undersampler.fit_resample(data, labels)
+        features, labels = undersampler.fit_resample(features, labels)
     else:
         print('Not reducing benign samples')
 
@@ -211,7 +202,7 @@ def resample_data(dset, data, labels):
 
     oversampler = RandomOverSampler(sampling_strategy=target_dict)
     start = time.time()
-    data, labels = oversampler.fit_resample(data, labels)
+    features, labels = oversampler.fit_resample(features, labels)
     print('Finished Oversampling')
     class_samples = {}
     for label in labels:
@@ -222,12 +213,12 @@ def resample_data(dset, data, labels):
     save_class_hist(class_samples, 'after_oversampling_' + dset)
     print('Total Data values: %d' % orig_samples)
 
-    return data, labels
+    return features, labels
 
-def drop_classes(data, labels, classes_to_drop):
+def drop_classes(features, labels, classes_to_drop):
     """
     Drops the classes specified in the classes_to_drop list from the data and labels structures
-    :param data: The entire numpy dataset
+    :param features: The entire numpy dataset of features
     :param labels: The labels list for the data array
     :param classes_to_drop: A list of the classes that should be dropped from the dataset
     :return: The updated data and labels objects
@@ -243,10 +234,10 @@ def drop_classes(data, labels, classes_to_drop):
             new_labels.append(labels[i])
     labels = new_labels
 
-    data = data[~drop_row, :]
+    features = features[~drop_row, :]
 
-    print('Done dropping.  Shape of data %s -- Size of labels %d' % (str(data.shape), len(labels)))
-    return data, labels
+    print('Done dropping.  Shape of data %s -- Size of labels %d' % (str(features.shape), len(labels)))
+    return features, labels
 
 
 def save_class_hist(samples_dict: dict, name: str):
@@ -271,23 +262,3 @@ def save_class_hist(samples_dict: dict, name: str):
     plt.tight_layout()
     plt.savefig(os.path.join('./out/', '%s.png' % name))  # TODO: Update to use specified output directory
     plt.clf()
-
-def normalize(data):
-    """
-    Will normalize each column of a numpy array between 0-1 using the min-max method
-    :param array: The data array
-    :return: the normalized data
-    """
-
-    min = np.amin(data, axis=0)
-    max = np.amax(data, axis=0)
-    data -= min
-    data /= (max - min + 1e-3)
-    return data
-
-def normalize_percentile(data):
-    low = np.percentile(data, 5, axis=0)
-    high = np.percentile(data, 95, axis=0)
-    data -= low
-    data /= (high - low + 1e-3)
-    return data

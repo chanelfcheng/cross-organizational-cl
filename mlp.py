@@ -16,6 +16,7 @@ from tqdm import tqdm
 import eval_mlp
 from load_data import load_pytorch_datasets, CIC_2018, USB_2021
 
+# MLP
 class MLP(nn.Module):
     def __init__(self, num_features, num_classes, embeddings=False):
         super().__init__()
@@ -47,7 +48,9 @@ class MLP(nn.Module):
         else:
             return x
 
-def train_mlp(name, args):
+def train_mlp(name, dset, data_path, pkl_path, pretrained_path, batch_size, 
+        eval_batch_size, num_epochs, warmup_epochs, learning_rate,
+        min_lr, warmup_lr, transfer_learn, continual_learn, source_classes):
     """
     Function to setup the PyTorch model and objects.
     :param name: The name of the run.  Used for output save path
@@ -57,16 +60,8 @@ def train_mlp(name, args):
     train = 'train'
     test = 'test'
 
-    batch_size = args.batch_size
-    eval_batch_size = args.eval_batch_size
-    num_epochs = args.num_epochs
-    warmup_epochs = args.warmup_epochs
-    learning_rate = args.learning_rate
-    min_lr = args.min_lr
-    warmup_lr = args.warmup_lr
-
     # Load dataset
-    dataset_train, dataset_test = load_pytorch_datasets(args.dset, args.data_root, pkl_path=args.pkl_path)
+    dataset_train, dataset_test = load_pytorch_datasets(dset, data_path, pkl_path, model='mlp')
     datasets = {train: dataset_train, test: dataset_test}
 
     samplers = {}
@@ -85,17 +80,17 @@ def train_mlp(name, args):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # Initialize Model
-    model = MLP(77, args.source_classes if args.transfer_learn != 'None' else num_classes)
+    model = MLP(88, source_classes if transfer_learn != 'None' else num_classes)
     print(model)
-    if args.transfer_learn != 'None':
-        path = args.pretrained_path
+    if transfer_learn != 'None':
+        path = pretrained_path
         model.load_state_dict(torch.load(path))
         model.fc = nn.Linear(model.num_out_features, num_classes)
 
-    if args.transfer_learn == 'None' or args.transfer_learn == 'fine_tune':
+    if transfer_learn == 'None' or transfer_learn == 'fine_tune':
         for param in model.parameters():
             param.requires_grad = True
-    elif args.transfer_learn == 'freeze_feature':
+    elif transfer_learn == 'freeze_feature':
         for param in model.fc.parameters():
             param.requires_grad = True
 
@@ -110,7 +105,6 @@ def train_mlp(name, args):
     lr_scheduler = CosineLRScheduler(
         optimizer,
         t_initial=num_steps,
-        cycle_mul=1.,
         lr_min=min_lr,
         warmup_lr_init=warmup_lr,
         warmup_t=warmup_steps,
@@ -121,7 +115,7 @@ def train_mlp(name, args):
     # Could make this a command line argument
     eval_batch_freq = len(dataloaders[train]) // 5
 
-    out_dir = os.path.join('./output/', name)
+    out_dir = os.path.join('./out/', name)
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
     with open(os.path.join(out_dir, 'config.txt'), 'w') as file:
@@ -191,7 +185,7 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, device, eva
                 # forward
                 # track history if only in train
                 with torch.set_grad_enabled(phase == train):
-                    outputs = model(inputs)
+                    outputs = model(inputs.float())
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
 
@@ -279,28 +273,23 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, device, eva
     return model
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, required=True, help='Name for the run')
-    parser.add_argument('--data-path', type=str, required=True, help='Path to dataset')
-    parser.add_argument('--dset', required=True, choices=[CIC_2018, USB_2021], help='Dataset to use for training')
-    parser.add_argument('--batch-size', type=int, required=True, help='Number of samples for a single training batch')
-    parser.add_argument('--eval-batch-size', type=int, required=True, help='Number of samples for evaluation batch')
-    parser.add_argument('--num-epochs', type=int, required=True, help='Number of epochs to train')
-    parser.add_argument('--warmup-epochs', type=int, required=True, help='Number of epochs to use reduced learning rate')
-    parser.add_argument('--learning-rate', type=float, required=True, help='Base lr to use for training')
-    parser.add_argument('--min-lr', type=float, required=True, help='Min lr used for training')
-    parser.add_argument('--warmup-lr', type=float, required=True, help='lr to use during warmup')
-    parser.add_argument('--transfer-learn', choices=['None', 'freeze-feature', 'fine-tune'], default='None',
-                        help='Specify which type of transfer learning to use')
-    parser.add_argument('--source-classes', type=int, default=-1, help='The number of classes present for the source'
-                                                                       'trained model')
-    parser.add_argument('--pretrained-path', type=str, default='', help='Path to the pretrained model weights')
-    parser.add_argument('--pkl-path', type=str, help='Path to store pickle files.  Saves time by storing preprocessed '
-                                                     'data')
-
-    args = parser.parse_args()
-
-    train_mlp(args.name, args)
+    train_mlp(
+        name = 'mlp-default',
+        dset = CIC_2018,
+        data_path = '/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris',
+        pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl',
+        pretrained_path = '',
+        batch_size = 32,
+        eval_batch_size = 1028,
+        num_epochs = 10,
+        warmup_epochs = 2,
+        learning_rate = 1e-4,
+        min_lr = 1e-6,
+        warmup_lr = 1e-5,
+        transfer_learn = 'None',
+        continual_learn = 'None',
+        source_classes = -1,
+    )
 
 if __name__ == '__main__':
     main()

@@ -16,14 +16,14 @@ if 'Src Port' in sample_cic_df:
 if 'Dst IP' in sample_cic_df:
     sample_cic_df = sample_cic_df.drop('Dst IP', axis=1)
 
-# Get attributes
-cic_2018_attributes = sample_cic_df.columns.values.tolist()
+# Get features
+cic_2018_features = sample_cic_df.columns.values.tolist()
 
 # Load in sample USB 2021 dataset
 sample_usb_file = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021/USB-IDS-1-TEST.csv'
 sample_usb_df = pd.read_csv(sample_usb_file, dtype=str, skipinitialspace=True)
 
-# Remove unused attributes
+# Remove unused features
 if 'Timestamp' in sample_usb_df:
     sample_usb_df = sample_usb_df.drop('Timestamp', axis=1)
 if 'Flow ID' in sample_usb_df:
@@ -35,18 +35,18 @@ if 'Src Port' in sample_usb_df:
 if 'Dst IP' in sample_usb_df:
     sample_usb_df = sample_usb_df.drop('Dst IP', axis=1)
 
-# Get attributes
-usb_2021_attributes = sample_usb_df.columns.values.tolist()
+# Get features
+usb_2021_features = sample_usb_df.columns.values.tolist()
 
-def get_attribute_map():
-    attribute_map = {}
-    for i in range(len(usb_2021_attributes)):
-        attribute_map[usb_2021_attributes[i]] = cic_2018_attributes[i]
-    return attribute_map
+def get_feature_map():
+    feature_map = {}
+    for i in range(len(usb_2021_features)):
+        feature_map[usb_2021_features[i]] = cic_2018_features[i]
+    return feature_map
 
 def main():
-    attribute_map = get_attribute_map()
-    print(attribute_map)
+    feature_map = get_feature_map()
+    print(feature_map)
 
 if __name__ == '__main__':
     main()
