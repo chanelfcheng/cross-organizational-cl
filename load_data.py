@@ -13,7 +13,7 @@ from scipy.stats.mstats import winsorize
 from torch.utils.data import TensorDataset
 from utils.data_preprocessing import process_features, replace_invalid, resample_data, CIC_2018, USB_2021
 
-def load_datasets(dset, data_path, pkl_path):
+def load_datasets(dset, data_path, pkl_path, include_categorical):
     all_features = None
     all_labels = []
     all_invalid = 0
@@ -27,7 +27,7 @@ def load_datasets(dset, data_path, pkl_path):
             reader = pd.read_csv(file, dtype=str, chunksize=10**6, skipinitialspace=True)  # Read in data from csv file
 
             for df in reader:
-                features, labels = process_features(dset, df)
+                features, labels = process_features(dset, df, include_categorical)
 
                 # Convert dataframe to numpy array for processing
                 data_np = np.array(features.to_numpy(), dtype=float)
@@ -66,9 +66,9 @@ def load_datasets(dset, data_path, pkl_path):
         
     return features_train, features_test, labels_train, labels_test
 
-def load_pytorch_datasets(dset, data_path, pkl_path=None, model='mlp'):
+def load_pytorch_datasets(dset, data_path, pkl_path, include_categorical, model='mlp'):
     # Load in datasets from csv files
-    features_train, features_test, labels_train, labels_test = load_datasets(dset, data_path, pkl_path)
+    features_train, features_test, labels_train, labels_test = load_datasets(dset, data_path, pkl_path, include_categorical)
 
     # Normalize train and test data
     scale = RobustScaler(quantile_range=(5,95)).fit(features_train)
@@ -123,12 +123,26 @@ def main():
     # features_train, features_test, labels_train, labels_test = load_datasets(
     #     dset=CIC_2018, 
     #     data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris-Slowhttptest', 
-    #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl'
+    #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl',
+    #     include_categorical=True
+    # )
+    # features_train, features_test, labels_train, labels_test = load_datasets(
+    #     dset=USB_2021, 
+    #     data_path='/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021', 
+    #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021.pkl',
+    #     include_categorical=True
+    # )
+    # features_train, features_test, labels_train, labels_test = load_datasets(
+    #     dset=CIC_2018, 
+    #     data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris-Slowhttptest', 
+    #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018-no-categorical.pkl',
+    #     include_categorical=False
     # )
     features_train, features_test, labels_train, labels_test = load_datasets(
         dset=USB_2021, 
         data_path='/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021', 
-        pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021.pkl'
+        pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021-no-categorical.pkl',
+        include_categorical=False
     )
     print(features_train.shape)
 

@@ -27,7 +27,15 @@ ohe1.fit(np.array(['0', '6', '17']).reshape(-1,1))  # Most common protocols
 ohe2 = OneHotEncoder(sparse=False)
 ohe2.fit(np.array(['dns', 'http', 'https', 'wbt', 'smb', 'ftp', 'ssh',  'llmnr', 'other']).reshape(-1,1))  # Most common port services
 
-def process_features(dset, df):
+def process_features(dset, df, include_categorical):
+    """
+    Processes features of a dataset and separates them from their class labels. Updates label names, removes redundant
+    features, and encodes categorical features consistently across multiple datasets.
+    :param dset: the name of the dataset being processed
+    :param df: the dataframe containing the dataset
+    :param include_categorical: option to include or exclude categorical features
+    :return: the features and their corresponding labels 
+    """
     print('Processing features...')
     # Rename label names to be consistent across datasets
     # TODO: Write custom function for encoding labels (including case for 'unknown')
@@ -59,25 +67,29 @@ def process_features(dset, df):
     features.reset_index(drop=True, inplace=True)
     labels.reset_index(drop=True, inplace=True)
 
-    # Protocol one-hot encoding
-    print('protocol one-hot encoding...')
-    ohe_protocol = ohe1.transform(features['Protocol'].values.reshape(-1,1))
-    ohe_protocol = pd.DataFrame(ohe_protocol, columns=ohe1.get_feature_names_out(['Protocol']))
-    
-    features = features.drop('Protocol', axis=1)
-    features = features.join(ohe_protocol)
+    # Categorical feature processing if included
+    if include_categorical:
+        # Protocol one-hot encoding
+        print('protocol one-hot encoding...')
+        ohe_protocol = ohe1.transform(features['Protocol'].values.reshape(-1,1))
+        ohe_protocol = pd.DataFrame(ohe_protocol, columns=ohe1.get_feature_names_out(['Protocol']))
+        
+        features = features.drop('Protocol', axis=1)
+        features = features.join(ohe_protocol)
 
-    # Destination port mapping
-    print('destination port mapping...')
-    map_ports(features, 'Dst Port')
+        # Destination port mapping
+        print('destination port mapping...')
+        map_ports(features, 'Dst Port')
 
-    # Destination port one-hot encoding
-    print('destination port one-hot encoding...')
-    ohe_dport = ohe2.transform(features['Dst Port'].values.reshape(-1,1))
-    ohe_dport = pd.DataFrame(ohe_dport, columns=ohe2.get_feature_names_out(['Port']))
+        # Destination port one-hot encoding
+        print('destination port one-hot encoding...')
+        ohe_dport = ohe2.transform(features['Dst Port'].values.reshape(-1,1))
+        ohe_dport = pd.DataFrame(ohe_dport, columns=ohe2.get_feature_names_out(['Port']))
 
-    features = features.drop('Dst Port', axis=1)
-    features = features.join(ohe_dport)
+        features = features.drop('Dst Port', axis=1)
+        features = features.join(ohe_dport)
+    else:
+        features = features.drop(['Protocol', 'Dst Port'], axis=1)
 
     print(features.head())
 

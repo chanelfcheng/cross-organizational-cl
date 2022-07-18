@@ -48,7 +48,7 @@ class MLP(nn.Module):
         else:
             return x
 
-def train_mlp(name, dset, data_path, pkl_path, pretrained_path, batch_size, 
+def train_mlp(name, dset, data_path, pkl_path, include_categorical, pretrained_path, batch_size, 
         eval_batch_size, num_epochs, warmup_epochs, learning_rate,
         min_lr, warmup_lr, transfer_learn, continual_learn, source_classes):
     """
@@ -61,7 +61,7 @@ def train_mlp(name, dset, data_path, pkl_path, pretrained_path, batch_size,
     test = 'test'
 
     # Load dataset
-    dataset_train, dataset_test = load_pytorch_datasets(dset, data_path, pkl_path, model='mlp')
+    dataset_train, dataset_test = load_pytorch_datasets(dset, data_path, pkl_path, include_categorical, model='mlp')
     datasets = {train: dataset_train, test: dataset_test}
 
     samplers = {}
@@ -81,7 +81,7 @@ def train_mlp(name, dset, data_path, pkl_path, pretrained_path, batch_size,
     print(device)
 
     # Initialize model
-    model = MLP(88, source_classes if transfer_learn != 'None' else num_classes)
+    model = MLP(88 if include_categorical else 76, source_classes if transfer_learn != 'None' else num_classes)
     print(model)
 
     # Transfer learning
@@ -96,6 +96,8 @@ def train_mlp(name, dset, data_path, pkl_path, pretrained_path, batch_size,
     elif transfer_learn == 'freeze_feature':
         for param in model.fc.parameters():
             param.requires_grad = True
+
+    # Continual learning
 
     model = model.to(device)
 
@@ -280,7 +282,9 @@ def main():
     #     name = 'mlp-default-cic',
     #     dset = CIC_2018,
     #     data_path = '/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris-Slowhttptest',
-    #     pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl',
+    #     pkl_path =
+    #     '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl',
+    #     include_categorical=True,
     #     pretrained_path = '',
     #     batch_size = 32,
     #     eval_batch_size = 1028,
@@ -293,11 +297,67 @@ def main():
     #     continual_learn = 'None',
     #     source_classes = -1,
     # )
-    #     train_mlp(
+    # train_mlp(
     #     name = 'mlp-default-usb',
     #     dset = USB_2021,
-    #     data_path = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021/Hulk-Slowloris-Slowhttptest',
+    #     data_path = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021',
     #     pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021.pkl',
+    #     include_categorical=True,
+    #     pretrained_path = '',
+    #     batch_size = 32,
+    #     eval_batch_size = 1028,
+    #     num_epochs = 10,
+    #     warmup_epochs = 2,
+    #     learning_rate = 1e-4,
+    #     min_lr = 1e-6,
+    #     warmup_lr = 1e-5,
+    #     transfer_learn = 'None',
+    #     continual_learn = 'None',
+    #     source_classes = -1,
+    # )
+    # train_mlp(
+    #     name = 'mlp-transfer-cic-usb',
+    #     dset = USB_2021,
+    #     data_path = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021',
+    #     pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021.pkl',
+    #     include_categorical=True,
+    #     pretrained_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/out/mlp-default-cic/model_eval_60.pth',
+    #     batch_size = 32,
+    #     eval_batch_size = 1028,
+    #     num_epochs = 10,
+    #     warmup_epochs = 2,
+    #     learning_rate = 1e-4,
+    #     min_lr = 1e-6,
+    #     warmup_lr = 1e-5,
+    #     transfer_learn = 'freeze-feature',
+    #     continual_learn = 'None',
+    #     source_classes = 4,
+    # )
+    # train_mlp(
+    #     name = 'mlp-default-cic-no-categorical',
+    #     dset = CIC_2018,
+    #     data_path = '/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris-Slowhttptest',
+    #     pkl_path =
+    #     '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018-no-categorical.pkl',
+    #     include_categorical=False,
+    #     pretrained_path = '',
+    #     batch_size = 32,
+    #     eval_batch_size = 1028,
+    #     num_epochs = 10,
+    #     warmup_epochs = 2,
+    #     learning_rate = 1e-4,
+    #     min_lr = 1e-6,
+    #     warmup_lr = 1e-5,
+    #     transfer_learn = 'None',
+    #     continual_learn = 'None',
+    #     source_classes = -1,
+    # )
+    # train_mlp(
+    #     name = 'mlp-default-usb-no-categorical',
+    #     dset = USB_2021,
+    #     data_path = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021',
+    #     pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021-no-categorical.pkl',
+    #     include_categorical=False,
     #     pretrained_path = '',
     #     batch_size = 32,
     #     eval_batch_size = 1028,
@@ -311,11 +371,12 @@ def main():
     #     source_classes = -1,
     # )
     train_mlp(
-        name = 'mlp-transfer-cic-usb',
+        name = 'mlp-transfer-cic-usb-no-categorical',
         dset = USB_2021,
         data_path = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021',
-        pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021.pkl',
-        pretrained_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/out/mlp-default-cic/model_eval_60.pth',
+        pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021-no-categorical.pkl',
+        include_categorical=False,
+        pretrained_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/out/mlp-default-cic-no-categorical/model_eval_60.pth',
         batch_size = 32,
         eval_batch_size = 1028,
         num_epochs = 10,
