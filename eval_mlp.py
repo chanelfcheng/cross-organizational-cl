@@ -12,20 +12,19 @@ from torch.utils.data import RandomSampler
 from tqdm import tqdm
 
 import mlp
-from load_data import load_pytorch_datasets, CIC_2018, USB_2021
+from load_data import load_pytorch_dataset, CIC_2018, USB_2021
 
 def eval(pretrained_path, include_categorical, args):
     """
     Setup the data objects to evaluate the specified MLP model
-    :param pretrained_path: Path to the pretrained model weights
+    :param pretrained_path: Path to the pretrained model
     :param args: The command line arguments
     :return: None
     """
-
     batch_size = args.batch_size
 
     # Load dataset
-    _, eval_dataset = load_pytorch_datasets(args.dset, args.data_path, pkl_path=args.pkl_path)
+    _, eval_dataset = load_pytorch_dataset(args.dset, args.data_path, pkl_path=args.pkl_path)
     sampler = RandomSampler(eval_dataset)  # RandomSample for more balance for t-SNE
 
     dataloader = torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size, sampler=sampler,

@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import eval_mlp
-from load_data import load_pytorch_datasets, CIC_2018, USB_2021
+from load_data import load_pytorch_dataset, CIC_2018, USB_2021
 
 # MLP
 class MLP(nn.Module):
@@ -50,18 +50,32 @@ class MLP(nn.Module):
 
 def train_mlp(name, dset, data_path, pkl_path, include_categorical, pretrained_path, batch_size, 
         eval_batch_size, num_epochs, warmup_epochs, learning_rate,
-        min_lr, warmup_lr, transfer_learn, continual_learn, source_classes):
+        min_lr, warmup_lr, transfer_learn, source_classes=-1):
     """
-    Function to setup the PyTorch model and objects.
-    :param name: The name of the run.  Used for output save path
-    :param args: The command line arguments.
+    Sets up PyTorch objects and trains the MLP model.
+    :param name: The name of the run. Used for output folder
+    :param dset: The name of the dataset
+    :param data_path: The path to the folder containing all data files
+    :param pkl_path: The path to the pickle file containing the pre-processed data
+    :param include_categorical: Option to include or exclude categorical features
+    :param pretrained_path: The path to the pretrained model, if using transfer learning
+    :param batch_size: Size of the batch
+    :param eval_batch_size: Size of the evaluation batch
+    :param num_epochs: Number of training epochs
+    :param warmup_epochs: Number of warmup epochs for reduced learning rate
+    :param learning_rate: Base learning rate of model
+    :param min_lr: Minimum learning rate of model
+    :param warmup_lr: Warmup learning rate of model
+    :param transfer_learn: The transfer learning strategy to use
+    :param source_classes: Number of classes in the source dataset. -1 is used
+    if training without transfer learning
+    :return: None
     """
-
     train = 'train'
     test = 'test'
 
     # Load dataset
-    dataset_train, dataset_test = load_pytorch_datasets(dset, data_path, pkl_path, include_categorical, model='mlp')
+    dataset_train, dataset_test = load_pytorch_dataset(dset, data_path, pkl_path, include_categorical, model='mlp')
     datasets = {train: dataset_train, test: dataset_test}
 
     samplers = {}
@@ -96,8 +110,6 @@ def train_mlp(name, dset, data_path, pkl_path, include_categorical, pretrained_p
     elif transfer_learn == 'freeze_feature':
         for param in model.fc.parameters():
             param.requires_grad = True
-
-    # Continual learning
 
     model = model.to(device)
 
@@ -148,11 +160,12 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, device, eva
     :param device: String for the device to perform training on
     :param eval_batch_freq: Number of iterations to perform between evaluation of model.
     :param out_dir: The output directory to save
-    :param train: string denoting train key in dataloaders
-    :param test: string denoting test key in dataloaders
+    :param train: String denoting train key in dataloaders
+    :param test: String denoting test key in dataloaders
     :param num_epochs: The number of epochs to train over
-    :return: the trained model
+    :return: The trained model
     """
+    # Model setup
     writer = SummaryWriter(log_dir=os.path.join(out_dir, 'tensorboard_logs'))
 
     since = time.time()
@@ -164,6 +177,7 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, device, eva
 
     validation_accuracies = []
 
+    # Training and testing phases
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
@@ -294,7 +308,6 @@ def main():
     #     min_lr = 1e-6,
     #     warmup_lr = 1e-5,
     #     transfer_learn = 'None',
-    #     continual_learn = 'None',
     #     source_classes = -1,
     # )
     # train_mlp(
@@ -312,7 +325,6 @@ def main():
     #     min_lr = 1e-6,
     #     warmup_lr = 1e-5,
     #     transfer_learn = 'None',
-    #     continual_learn = 'None',
     #     source_classes = -1,
     # )
     # train_mlp(
@@ -330,7 +342,6 @@ def main():
     #     min_lr = 1e-6,
     #     warmup_lr = 1e-5,
     #     transfer_learn = 'freeze-feature',
-    #     continual_learn = 'None',
     #     source_classes = 4,
     # )
     # train_mlp(
@@ -349,7 +360,6 @@ def main():
     #     min_lr = 1e-6,
     #     warmup_lr = 1e-5,
     #     transfer_learn = 'None',
-    #     continual_learn = 'None',
     #     source_classes = -1,
     # )
     # train_mlp(
@@ -367,7 +377,6 @@ def main():
     #     min_lr = 1e-6,
     #     warmup_lr = 1e-5,
     #     transfer_learn = 'None',
-    #     continual_learn = 'None',
     #     source_classes = -1,
     # )
     train_mlp(
@@ -385,7 +394,6 @@ def main():
         min_lr = 1e-6,
         warmup_lr = 1e-5,
         transfer_learn = 'freeze-feature',
-        continual_learn = 'None',
         source_classes = 4,
     )
 

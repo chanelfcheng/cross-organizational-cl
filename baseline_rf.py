@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 
-from load_data import load_datasets
+from load_data import load_dataset
 from utils.data_preprocessing import CIC_2018, USB_2021
 
 
@@ -24,7 +24,7 @@ def main():
     print(args.dset)
     print(args.data_path)
     print(args.pkl_path)
-    data_train, data_test, labels_train, labels_test = load_datasets(dset=args.dset, data_path=args.data_path, pkl_path=args.pkl_path)
+    data_train, data_test, labels_train, labels_test = load_dataset(dset=args.dset, data_path=args.data_path, pkl_path=args.pkl_path)
 
     print('\n\n-----------------------------------------------------------\n')
     print('Fitting RF Model')

@@ -31,10 +31,10 @@ def process_features(dset, df, include_categorical):
     """
     Processes features of a dataset and separates them from their class labels. Updates label names, removes redundant
     features, and encodes categorical features consistently across multiple datasets.
-    :param dset: the name of the dataset being processed
-    :param df: the dataframe containing the dataset
-    :param include_categorical: option to include or exclude categorical features
-    :return: the features and their corresponding labels 
+    :param dset: The name of the dataset
+    :param df: The dataframe containing the dataset
+    :param include_categorical: Option to include or exclude categorical features
+    :return: The features and their corresponding labels 
     """
     print('Processing features...')
     # Rename label names to be consistent across datasets
@@ -96,6 +96,13 @@ def process_features(dset, df, include_categorical):
     return features, labels
 
 def map_ports(features, feature_name):
+    """
+    Map port numbers to their corresponding port service. The most common port
+    services are denoted by their name and the rest are denoted as 'other'.
+    :param features: The column containing the port number feature
+    :param feature_name: The name of the feature column
+    :return: None
+    """
     dns = features[feature_name] == '53'
     http = (features[feature_name] == '80') | (features[feature_name] == '8080')
     https = (features[feature_name] == '443') | (features[feature_name] == '8443')
@@ -121,11 +128,11 @@ def replace_invalid(features, labels):
     """
     Cleans the data array.  The effect is to remove NaN and Inf values by using a nearest neighbor approach.
     Data deemed to be invalid will also be adjusted to the nearest valid value
+    within each class.
     :param features: The data array of features
     :param labels: List of the labels for each sample from the data array
-    :return: the processed data array
+    :return: The processed data array
     """
-
     # Replace invalid values with average value of the column within each class label
     num_invalid = 0
 
@@ -155,6 +162,16 @@ def replace_invalid(features, labels):
     return features, labels, num_invalid
 
 def resample_data(dset, features, labels):
+    """
+    Resamples the data by reducing the largest class and augmenting the minority
+    classes. The largest class is randomly undersampled to 2x greater than the
+    next largest class. The minority classes are randomly oversampled to 20% of
+    the largest class, after undersampling.
+    :param dset: The name of the dataset
+    :param features: The columns containing the features
+    :param labels: The column containing the labels
+    :return: the resampled features and their corresponding labels
+    """
     class_samples = {}
     orig_samples = len(labels)
     for label in labels:
@@ -207,7 +224,7 @@ def resample_data(dset, features, labels):
     #         class_samples[label] += 1
     # save_class_hist(class_samples, 'after_dropping_' + name)
 
-    # Goal is to have all classes represented as 20% of largest class
+    # Oversample minority classes up to 20% of largest class (after undersampling)
     largest_num = max(class_samples.values())
     largest_class = max(class_samples, key=class_samples.get)
     target_dict = {}

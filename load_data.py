@@ -13,11 +13,23 @@ from scipy.stats.mstats import winsorize
 from torch.utils.data import TensorDataset
 from utils.data_preprocessing import process_features, replace_invalid, resample_data, CIC_2018, USB_2021
 
-def load_datasets(dset, data_path, pkl_path, include_categorical):
+def load_dataset(dset, data_path, pkl_path, include_categorical):
+    """
+    Loads in dataset from a folder containing all the data files. Processes
+    features, replaces invalid values, and concatenates all data files into a
+    single dataset. Splits dataset into train (.80) and test (.20) sets
+    :param dset: name of the dataset
+    :param data_path: path to the folder containing the data files
+    :param pkl_path: path to pickle file for saving pre-processed data
+    :param include_categorical: option to include or exclude categorical features
+    :return: the training features, training labels, test features, and test labels
+    """
+    # Define variables to store all features, labels, and invalid count after concatenation
     all_features = None
     all_labels = []
     all_invalid = 0
 
+    # Check if pre-processed pickle file exists
     if os.path.exists(pkl_path): 
         with open(pkl_path, 'rb') as file:
             features_train, features_test, labels_train, labels_test = pickle.load(file)  # Load data from pickle file
@@ -66,9 +78,18 @@ def load_datasets(dset, data_path, pkl_path, include_categorical):
         
     return features_train, features_test, labels_train, labels_test
 
-def load_pytorch_datasets(dset, data_path, pkl_path, include_categorical, model='mlp'):
+def load_pytorch_dataset(dset, data_path, pkl_path, include_categorical, model='mlp'):
+    """
+    Loads data into a pytorch Tensor Dataset structure for neural network processing.
+    :param dset: name of the dataset
+    :param data_path: path to the folder containing the data files
+    :param pkl_path: path to pickle file for saving pre-processed data
+    :param include_categorical: option to include or exclude categorical features
+    :param model: type of neural network to be used
+    :return: the training and test datasets
+    """
     # Load in datasets from csv files
-    features_train, features_test, labels_train, labels_test = load_datasets(dset, data_path, pkl_path, include_categorical)
+    features_train, features_test, labels_train, labels_test = load_dataset(dset, data_path, pkl_path, include_categorical)
 
     # Normalize train and test data
     scale = RobustScaler(quantile_range=(5,95)).fit(features_train)
@@ -138,7 +159,7 @@ def main():
     #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018-no-categorical.pkl',
     #     include_categorical=False
     # )
-    features_train, features_test, labels_train, labels_test = load_datasets(
+    features_train, features_test, labels_train, labels_test = load_dataset(
         dset=USB_2021, 
         data_path='/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021', 
         pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021-no-categorical.pkl',
