@@ -14,7 +14,7 @@ from tqdm import tqdm
 import mlp
 from load_data import load_pytorch_datasets, CIC_2018, USB_2021
 
-def eval_setup(pretrained_path, args):
+def eval(pretrained_path, args):
     """
     Setup the data objects to evaluate the specified MLP model
     :param pretrained_path: Path to the pretrained model weights
@@ -36,7 +36,7 @@ def eval_setup(pretrained_path, args):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # Initialize Model
-    model = mlp.MLP(77, num_classes, embeddings=args.tsne)
+    model = mlp.MLP(88, num_classes, embeddings=args.tsne)
 
     model.load_state_dict(torch.load(pretrained_path))
 
@@ -155,7 +155,7 @@ def main():
         print('Path is invalid', file=sys.stderr)
         exit(1)
 
-    eval_setup(path, args)
+    eval(path, args)
     print('Done')
 
 

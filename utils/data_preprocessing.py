@@ -34,8 +34,10 @@ def process_features(dset, df):
     df.loc[df['Label'].str.contains('benign', case=False), 'Label'] = 'Benign'
     df.loc[df['Label'].str.contains('hulk', case=False), 'Label'] = 'DoS-Hulk' 
     df.loc[df['Label'].str.contains('slowloris', case=False), 'Label'] = 'DoS-Slowloris'
+    df.loc[df['Label'].str.contains('slowhttptest', case=False), 'Label'] = 'DoS-Slowhttptest'
+    df.loc[df['Label'].str.contains('tcpflood', case=False), 'Label'] = 'DoS-TCPFlood'
 
-    attack = df.loc[df['Label'].str.contains('hulk|slowloris', case=False)].copy()  # Only get hulk/slowloris attacks
+    attack = df.loc[df['Label'].str.contains('hulk|slowloris|slowhttptest|tcpflood', case=False)].copy()  # Get attack types
     benign = df.loc[df['Label'].str.contains('benign', case=False)].copy()  # Get all benign traffic
 
     features = pd.concat([attack, benign]).drop(['Label'], axis=1)  # Concatenate attack/benign and separate label from features
@@ -76,6 +78,8 @@ def process_features(dset, df):
 
     features = features.drop('Dst Port', axis=1)
     features = features.join(ohe_dport)
+
+    print(features.head())
 
     return features, labels
 
@@ -148,19 +152,20 @@ def resample_data(dset, features, labels):
             class_samples[label] += 1
     save_class_hist(class_samples, 'orig_dist_' + dset)
 
-    # Undersample Benign Data to 2x greater than next largest class
-    benign_num = class_samples['Benign']
+    # Undersample largest class to 2x greater than next largest class
+    largest_num = max(class_samples.values())
+    largest_class = max(class_samples, key=class_samples.get)
     largest_min_num = 0
     for class_name in class_samples.keys():
-        if class_name != 'Benign' and class_samples[class_name] > largest_min_num:
+        if class_name != largest_class and class_samples[class_name] > largest_min_num:
             largest_min_num = class_samples[class_name]
-    target_benign = 2 * largest_min_num
-    if target_benign < benign_num:
-        print('Reducing Benign data from %d to %d samples' % (benign_num, target_benign))
-        undersampler = RandomUnderSampler(sampling_strategy={'Benign': target_benign})
+    target_largest = 2 * largest_min_num
+    if target_largest < largest_num:
+        print('Reducing %s data from %d to %d samples' % (largest_class, largest_num, target_largest))
+        undersampler = RandomUnderSampler(sampling_strategy={largest_class: target_largest})
         features, labels = undersampler.fit_resample(features, labels)
     else:
-        print('Not reducing benign samples')
+        print('Not reducing any classes')
 
     print('Finished Undersampling')
     class_samples = {}
@@ -190,12 +195,14 @@ def resample_data(dset, features, labels):
     #         class_samples[label] += 1
     # save_class_hist(class_samples, 'after_dropping_' + name)
 
-    # Goal is to have all classes represented as 20% of benign data
+    # Goal is to have all classes represented as 20% of largest class
+    largest_num = max(class_samples.values())
+    largest_class = max(class_samples, key=class_samples.get)
     target_dict = {}
-    target_num = round(class_samples['Benign'] * 0.20)
+    target_num = round(largest_num * 0.20)
     print('Targeting %d samples for each minority class' % target_num)
     for label in class_samples.keys():
-        if label == 'Benign' or class_samples[label] > target_num:
+        if label == largest_class or class_samples[label] > target_num:
             target_dict[label] = class_samples[label]
         else:
             target_dict[label] = target_num
@@ -260,5 +267,6 @@ def save_class_hist(samples_dict: dict, name: str):
     plt.xticks(rotation=90)
     plt.grid(True)
     plt.tight_layout()
+    plt.rc('font', size=48)
     plt.savefig(os.path.join('./out/', '%s.png' % name))  # TODO: Update to use specified output directory
     plt.clf()

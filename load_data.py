@@ -57,7 +57,7 @@ def load_datasets(dset, data_path, pkl_path):
         # Perform train/test split of 80-20
         features_train, features_test, labels_train, labels_test = train_test_split(all_features, all_labels, test_size=0.2)
 
-        # Resample data to reduce class imbalance
+        # Resample training data to reduce class imbalance
         features_train, labels_train = resample_data(dset, features_train, labels_train)
         
         # Save to pickle file
@@ -120,16 +120,16 @@ def load_pytorch_datasets(dset, data_path, pkl_path=None, model='mlp'):
     return dataset_train, dataset_test
 
 def main():
-    features_train, features_test, labels_train, labels_test = load_datasets(
-        dset=CIC_2018, 
-        data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris', 
-        pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl'
-    )
     # features_train, features_test, labels_train, labels_test = load_datasets(
-    #     dset=USB_2021, 
-    #     data_path='/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021/Hulk-Slowloris', 
-    #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2018.pkl'
+    #     dset=CIC_2018, 
+    #     data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris-Slowhttptest', 
+    #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl'
     # )
+    features_train, features_test, labels_train, labels_test = load_datasets(
+        dset=USB_2021, 
+        data_path='/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021', 
+        pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021.pkl'
+    )
     print(features_train.shape)
 
 if __name__ == '__main__':

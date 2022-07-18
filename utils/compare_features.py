@@ -20,7 +20,7 @@ if 'Dst IP' in sample_cic_df:
 cic_2018_features = sample_cic_df.columns.values.tolist()
 
 # Load in sample USB 2021 dataset
-sample_usb_file = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021/USB-IDS-1-TEST.csv'
+sample_usb_file = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021/Hulk-Evasive.csv'
 sample_usb_df = pd.read_csv(sample_usb_file, dtype=str, skipinitialspace=True)
 
 # Remove unused features

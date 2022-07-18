@@ -78,10 +78,13 @@ def train_mlp(name, dset, data_path, pkl_path, pretrained_path, batch_size,
     num_classes = len(class_names)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print(device)
 
-    # Initialize Model
+    # Initialize model
     model = MLP(88, source_classes if transfer_learn != 'None' else num_classes)
     print(model)
+
+    # Transfer learning
     if transfer_learn != 'None':
         path = pretrained_path
         model.load_state_dict(torch.load(path))
@@ -211,7 +214,7 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, device, eva
                 if phase == train and eval_batch_freq > 0:
                     if (idx + 1) % eval_batch_freq == 0:
                         # Evaluate the model every set number of batches
-                        model_f1, model_acc = eval_mlp.eval_model(model, dataloaders[test], device)
+                        model_f1, model_acc = eval_mlp.eval_model(model, dataloaders[test], device, out_path=out_dir)
                         validation_accuracies.append(model_acc)
                         if model_f1 > best_f1:
                             best_f1 = model_f1
@@ -273,12 +276,46 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, device, eva
     return model
 
 def main():
+    # train_mlp(
+    #     name = 'mlp-default-cic',
+    #     dset = CIC_2018,
+    #     data_path = '/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris-Slowhttptest',
+    #     pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl',
+    #     pretrained_path = '',
+    #     batch_size = 32,
+    #     eval_batch_size = 1028,
+    #     num_epochs = 10,
+    #     warmup_epochs = 2,
+    #     learning_rate = 1e-4,
+    #     min_lr = 1e-6,
+    #     warmup_lr = 1e-5,
+    #     transfer_learn = 'None',
+    #     continual_learn = 'None',
+    #     source_classes = -1,
+    # )
+    #     train_mlp(
+    #     name = 'mlp-default-usb',
+    #     dset = USB_2021,
+    #     data_path = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021/Hulk-Slowloris-Slowhttptest',
+    #     pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021.pkl',
+    #     pretrained_path = '',
+    #     batch_size = 32,
+    #     eval_batch_size = 1028,
+    #     num_epochs = 10,
+    #     warmup_epochs = 2,
+    #     learning_rate = 1e-4,
+    #     min_lr = 1e-6,
+    #     warmup_lr = 1e-5,
+    #     transfer_learn = 'None',
+    #     continual_learn = 'None',
+    #     source_classes = -1,
+    # )
     train_mlp(
-        name = 'mlp-default',
-        dset = CIC_2018,
-        data_path = '/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris',
-        pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl',
-        pretrained_path = '',
+        name = 'mlp-transfer-cic-usb',
+        dset = USB_2021,
+        data_path = '/home/chanel/Cyber/yang-summer-2022/data/USB-IDS2021',
+        pkl_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/usb-2021.pkl',
+        pretrained_path = '/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/out/mlp-default-cic/model_eval_60.pth',
         batch_size = 32,
         eval_batch_size = 1028,
         num_epochs = 10,
@@ -286,9 +323,9 @@ def main():
         learning_rate = 1e-4,
         min_lr = 1e-6,
         warmup_lr = 1e-5,
-        transfer_learn = 'None',
+        transfer_learn = 'freeze-feature',
         continual_learn = 'None',
-        source_classes = -1,
+        source_classes = 4,
     )
 
 if __name__ == '__main__':
