@@ -2,6 +2,7 @@
 *.pkl
 *.txt
 *.pth
+test.py
 
 __pycache__/
 */__pycache__/

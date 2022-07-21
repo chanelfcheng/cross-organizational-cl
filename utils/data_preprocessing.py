@@ -9,15 +9,11 @@ from imblearn.under_sampling import RandomUnderSampler
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from collections import Counter
-from utils.compare_features import get_feature_map
-
-# Datasets used
-CIC_2018 = 'cic-2018'
-USB_2021 = 'usb-2021'
+from datasets import CLASSES
 
 # Encoder for benign/attack labels
 le = LabelEncoder()
-le.fit(['Benign', 'DoS-Hulk', 'DoS-Slowloris'])  # Known labels
+le.fit(CLASSES)  # Known labels
 
 # Encoder for protocol feature
 ohe1 = OneHotEncoder(sparse=False)
@@ -37,15 +33,9 @@ def process_features(dset, df, include_categorical):
     :return: The features and their corresponding labels 
     """
     print('Processing features...')
-    # Rename label names to be consistent across datasets
-    # TODO: Write custom function for encoding labels (including case for 'unknown')
-    df.loc[df['Label'].str.contains('benign', case=False), 'Label'] = 'Benign'
-    df.loc[df['Label'].str.contains('hulk', case=False), 'Label'] = 'DoS-Hulk' 
-    df.loc[df['Label'].str.contains('slowloris', case=False), 'Label'] = 'DoS-Slowloris'
-    df.loc[df['Label'].str.contains('slowhttptest', case=False), 'Label'] = 'DoS-Slowhttptest'
-    df.loc[df['Label'].str.contains('tcpflood', case=False), 'Label'] = 'DoS-TCPFlood'
+    rename_labels(df)
 
-    attack = df.loc[df['Label'].str.contains('hulk|slowloris|slowhttptest|tcpflood', case=False)].copy()  # Get attack types
+    attack = df.loc[df['Label'].str.contains('hulk|slowloris|slowhttptest|tcpflood|goldeneye', case=False)].copy()  # Get attack types
     benign = df.loc[df['Label'].str.contains('benign', case=False)].copy()  # Get all benign traffic
 
     features = pd.concat([attack, benign]).drop(['Label'], axis=1)  # Concatenate attack/benign and separate label from features
@@ -95,9 +85,21 @@ def process_features(dset, df, include_categorical):
 
     return features, labels
 
+def rename_labels(df):
+    """
+    Renames label names to be consistent across datasets.
+    :param df: The dataframe for which the labels will be renamed
+    """
+    df.loc[df['Label'].str.contains('benign', case=False), 'Label'] = 'Benign'
+    df.loc[df['Label'].str.contains('hulk', case=False), 'Label'] = 'DoS-Hulk' 
+    df.loc[df['Label'].str.contains('slowloris', case=False), 'Label'] = 'DoS-Slowloris'
+    df.loc[df['Label'].str.contains('slowhttptest', case=False), 'Label'] = 'DoS-SlowHttpTest'
+    df.loc[df['Label'].str.contains('tcpflood', case=False), 'Label'] = 'DoS-TCPFlood'
+    df.loc[df['Label'].str.contains('goldeneye', case=False), 'Label'] = 'DoS-GoldenEye'
+
 def map_ports(features, feature_name):
     """
-    Map port numbers to their corresponding port service. The most common port
+    Maps port numbers to their corresponding port service. The most common port
     services are denoted by their name and the rest are denoted as 'other'.
     :param features: The column containing the port number feature
     :param feature_name: The name of the feature column
@@ -124,18 +126,32 @@ def map_ports(features, feature_name):
     features.loc[other, feature_name] = 'other'
 
 
-def replace_invalid(features, labels):
+def remove_invalid(features, labels):
     """
-    Cleans the data array.  The effect is to remove NaN and Inf values by using a nearest neighbor approach.
-    Data deemed to be invalid will also be adjusted to the nearest valid value
+    Cleans the data array. Removes samples with invalid feature values.
     within each class.
     :param features: The data array of features
     :param labels: List of the labels for each sample from the data array
     :return: The processed data array
     """
-    # Replace invalid values with average value of the column within each class label
     num_invalid = 0
+    remove_idx = []
 
+    for flow_idx in tqdm(range(features.shape[0]), file=sys.stdout, desc='Cleaning data array...'):
+        for feature_idx in range(features.shape[1]):
+            data_val = features[flow_idx, feature_idx]
+            if np.isnan(data_val) or np.isinf(data_val):
+                remove_idx.append(flow_idx)
+                num_invalid += 1
+
+    features = np.delete(features, remove_idx, axis=0)
+    labels = np.delete(labels, remove_idx, axis=0).tolist()
+
+    print('Removed %d invalid values' % num_invalid)
+
+    return features, labels, num_invalid
+
+def get_class_avg(features, labels):
     unique_labels = []
     for label in labels:
         if label not in unique_labels:
@@ -150,16 +166,7 @@ def replace_invalid(features, labels):
         class_data = features[index, :]
         class_avg[label] = np.average(np.ma.masked_invalid(class_data), axis=0)
 
-    for flow_idx in tqdm(range(features.shape[0]), file=sys.stdout, desc='Cleaning data array...'):
-        label = labels[flow_idx]
-        for feature_idx in range(features.shape[1]):
-            data_val = features[flow_idx, feature_idx]
-            if np.isnan(data_val) or np.isinf(data_val):
-                features[flow_idx, feature_idx] = class_avg[label][feature_idx]
-                num_invalid += 1
-    print('Updated %d invalid values' % num_invalid)
-
-    return features, labels, num_invalid
+    return class_avg
 
 def resample_data(dset, features, labels):
     """
@@ -297,5 +304,5 @@ def save_class_hist(samples_dict: dict, name: str):
     plt.grid(True)
     plt.tight_layout()
     plt.rc('font', size=48)
-    plt.savefig(os.path.join('./out/', '%s.png' % name))  # TODO: Update to use specified output directory
+    plt.savefig(os.path.join('./figures/', '%s.png' % name))  # TODO: Update to use specified output directory
     plt.clf()

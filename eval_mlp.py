@@ -24,7 +24,7 @@ def eval(pretrained_path, include_categorical, args):
     batch_size = args.batch_size
 
     # Load dataset
-    _, eval_dataset = load_pytorch_dataset(args.dset, args.data_path, pkl_path=args.pkl_path)
+    _, eval_dataset = load_pytorch_dataset(dset=args.dset, data_path=args.data_path, pkl_path=args.pkl_path, include_categorical=True, model='mlp')
     sampler = RandomSampler(eval_dataset)  # RandomSample for more balance for t-SNE
 
     dataloader = torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size, sampler=sampler,
@@ -41,7 +41,7 @@ def eval(pretrained_path, include_categorical, args):
 
     model = model.to(device)
 
-    out_path = os.path.join('output', args.name)
+    out_path = os.path.join('out', args.name)
     eval_model(model, dataloader, device, out_path, tsne=args.tsne, tsne_percent=args.tsne_percent)
 
 
@@ -135,14 +135,14 @@ def eval_model(model, dataloader, device, out_path=None, tsne=False, tsne_percen
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--name', type=str, default='debug', help='Unique name used for saving output files')
     parser.add_argument('--model-path', type=str, required=True, help='Path to the pretrained weights')
-    parser.add_argument('--data-root', type=str, required=True, help='Path to the dataset files')
+    parser.add_argument('--data-path', type=str, required=True, help='Path to the dataset files')
     parser.add_argument('--dset', required=True, choices=[CIC_2018, USB_2021], help='Specify which dataset to use for'
                                                                                     'evaluation')
-    parser.add_argument('--batch-size', type=int, required=True, help='The batch size to use for evaluation')
-    parser.add_argument('--name', type=str, default='debug', help='Unique name used for saving output files')
     parser.add_argument('--pkl-path', type=str, help='Path to store pickle files.  Saves time by storing preprocessed '
                                                      'data')
+    parser.add_argument('--batch-size', type=int, required=True, help='The batch size to use for evaluation')
     parser.add_argument('--tsne', action='store_true', help='If set generates TSNE plots using subset of data.'
                                                             'Other metrics are not valid')
     parser.add_argument('--tsne-percent', default=0.01, help='To speed up TSNE, only run on a small portion of the '
@@ -154,8 +154,7 @@ def main():
         print('Path is invalid', file=sys.stderr)
         exit(1)
 
-    # eval(path, True, args)
-    eval(path, False, args)
+    eval(path, True, args)
     print('Done')
 
 

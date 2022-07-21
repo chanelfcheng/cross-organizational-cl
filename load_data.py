@@ -1,8 +1,6 @@
 import os
 import glob
 import pickle
-import sys
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -11,7 +9,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from scipy.stats.mstats import winsorize
 from torch.utils.data import TensorDataset
-from utils.data_preprocessing import process_features, replace_invalid, resample_data, CIC_2018, USB_2021
+from utils.data_preprocessing import process_features, get_class_avg, remove_invalid, resample_data
+from datasets import CIC_2018, USB_2021
 
 def load_dataset(dset, data_path, pkl_path, include_categorical):
     """
@@ -45,7 +44,7 @@ def load_dataset(dset, data_path, pkl_path, include_categorical):
                 data_np = np.array(features.to_numpy(), dtype=float)
                 labels_lst = labels.tolist()
 
-                data_np, labels_lst, num_invalid = replace_invalid(data_np, labels_lst)  # Clean data of invalid values
+                data_np, labels_lst, num_invalid = remove_invalid(data_np, labels_lst)  # Clean data of invalid values
 
                 # Combine all data, labels, and number of invalid values
                 if all_features is None:
@@ -114,20 +113,20 @@ def load_pytorch_dataset(dset, data_path, pkl_path, include_categorical, model='
             label_encoding[label] = value
             value += 1
     
-    labels_idfeatures_train = []
+    labels_idx_train = []
     for i in range(len(labels_train)):
         label = labels_train[i]
         value = label_encoding[label]
-        labels_idfeatures_train.append(value)
+        labels_idx_train.append(value)
 
-    labels_idfeatures_test = []
+    labels_idx_test = []
     for i in range(len(labels_test)):
         label = labels_test[i]
         value = label_encoding[label]
-        labels_idfeatures_test.append(value)
+        labels_idx_test.append(value)
 
-    labels_train = torch.tensor(labels_idfeatures_train)
-    labels_test = torch.tensor(labels_idfeatures_test)
+    labels_train = torch.tensor(labels_idx_train)
+    labels_test = torch.tensor(labels_idx_test)
     classes = list(label_encoding.keys())
 
     # Create pytorch datasets with labels
@@ -143,7 +142,7 @@ def load_pytorch_dataset(dset, data_path, pkl_path, include_categorical, model='
 def main():
     # features_train, features_test, labels_train, labels_test = load_datasets(
     #     dset=CIC_2018, 
-    #     data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris-Slowhttptest', 
+    #     data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/DoS', 
     #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018.pkl',
     #     include_categorical=True
     # )
@@ -155,7 +154,7 @@ def main():
     # )
     # features_train, features_test, labels_train, labels_test = load_datasets(
     #     dset=CIC_2018, 
-    #     data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/Hulk-Slowloris-Slowhttptest', 
+    #     data_path='/home/chanel/Cyber/yang-summer-2022/data/CIC-IDS2018/DoS', 
     #     pkl_path='/home/chanel/Cyber/yang-summer-2022/cross-organizational-cl/pickle/cic-2018-no-categorical.pkl',
     #     include_categorical=False
     # )
