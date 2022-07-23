@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 import mlp
 from load_data import load_pytorch_dataset, CIC_2018, USB_2021
+from utils.save_figures import save_classification_report
 
 def eval(pretrained_path, include_categorical, args):
     """
@@ -45,7 +46,7 @@ def eval(pretrained_path, include_categorical, args):
     eval_model(model, dataloader, device, out_path, tsne=args.tsne, tsne_percent=args.tsne_percent)
 
 
-def eval_model(model, dataloader, device, out_path=None, tsne=False, tsne_percent=0.01):
+def eval_model(name, model, dataloader, device, out_path=None, tsne=False, tsne_percent=0.01):
     """
     Evaluate the given model
     :param model: The MLP model
@@ -130,8 +131,7 @@ def eval_model(model, dataloader, device, out_path=None, tsne=False, tsne_percen
     print('Top-1 Acc: {:.4f} F1 Score: {:.4f}'.format(top1_acc, val_f1_score))
     log_str = classification_report(all_labels, all_preds, target_names=dataloader.dataset.classes, digits=4)
     print(log_str)
-    return val_f1_score, top1_acc
-
+    return val_f1_score, top1_acc, log_str
 
 def main():
     parser = argparse.ArgumentParser()

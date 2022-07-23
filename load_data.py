@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from scipy.stats.mstats import winsorize
 from torch.utils.data import TensorDataset
-from utils.data_preprocessing import process_features, get_class_avg, remove_invalid, resample_data
+from utils.data_preprocessing import process_features, remove_invalid, resample_data
 from datasets import CIC_2018, USB_2021
 
 def load_dataset(dset, data_path, pkl_path, include_categorical):
@@ -40,17 +40,17 @@ def load_dataset(dset, data_path, pkl_path, include_categorical):
             for df in reader:
                 features, labels = process_features(dset, df, include_categorical)
 
-                # Convert dataframe to numpy array for processing
-                data_np = np.array(features.to_numpy(), dtype=float)
+                # Convert features to numpy array and labels to list for processing
+                features_np = np.array(features.to_numpy(), dtype=float)
                 labels_lst = labels.tolist()
 
-                data_np, labels_lst, num_invalid = remove_invalid(data_np, labels_lst)  # Clean data of invalid values
+                features_np, labels_lst, num_invalid = remove_invalid(features_np, labels_lst)  # Clean data of invalid values
 
                 # Combine all data, labels, and number of invalid values
                 if all_features is None:
-                    all_features = data_np  # If no data yet, set all data to current data
+                    all_features = features_np  # If no data yet, set all data to current data
                 else:
-                    all_features = np.concatenate((all_features, data_np))  # Else, concatenate data
+                    all_features = np.concatenate((all_features, features_np))  # Else, concatenate data
                 all_labels += labels_lst
                 all_invalid += num_invalid
 

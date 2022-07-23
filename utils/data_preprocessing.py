@@ -3,13 +3,14 @@ import sys
 import time
 import numpy as np
 import pandas as pd
+import plotly.figure_factory as ff
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-from imblearn.over_sampling import RandomOverSampler, SMOTENC
+from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-from collections import Counter
+
 from datasets import CLASSES
+from utils.save_figures import save_feature_table, save_class_hist
 
 # Encoder for benign/attack labels
 le = LabelEncoder()
@@ -81,7 +82,8 @@ def process_features(dset, df, include_categorical):
     else:
         features = features.drop(['Protocol', 'Dst Port'], axis=1)
 
-    print(features.head())
+    # Save first three rows of table containing categorical features as a figure
+    save_feature_table('encoded_categorical_' + dset, features, 0, 3, -12, None)
 
     return features, labels
 
@@ -125,48 +127,29 @@ def map_ports(features, feature_name):
     features.loc[llmnr, feature_name] = 'llmnr'
     features.loc[other, feature_name] = 'other'
 
-
-def remove_invalid(features, labels):
+def remove_invalid(features_np, labels_lst):
     """
-    Cleans the data array. Removes samples with invalid feature values.
-    within each class.
-    :param features: The data array of features
+    Cleans a numpy array by removing samples with invalid feature values.
+    :param features: The numpy array of features
     :param labels: List of the labels for each sample from the data array
-    :return: The processed data array
+    :return: The processed numpy array
     """
     num_invalid = 0
     remove_idx = []
 
-    for flow_idx in tqdm(range(features.shape[0]), file=sys.stdout, desc='Cleaning data array...'):
-        for feature_idx in range(features.shape[1]):
-            data_val = features[flow_idx, feature_idx]
+    for flow_idx in tqdm(range(features_np.shape[0]), file=sys.stdout, desc='Cleaning data array...'):
+        for feature_idx in range(features_np.shape[1]):
+            data_val = features_np[flow_idx, feature_idx]
             if np.isnan(data_val) or np.isinf(data_val):
                 remove_idx.append(flow_idx)
                 num_invalid += 1
 
-    features = np.delete(features, remove_idx, axis=0)
-    labels = np.delete(labels, remove_idx, axis=0).tolist()
+    features_np = np.delete(features_np, remove_idx, axis=0)
+    labels_lst = np.delete(labels_lst, remove_idx, axis=0).tolist()
 
     print('Removed %d invalid values' % num_invalid)
 
-    return features, labels, num_invalid
-
-def get_class_avg(features, labels):
-    unique_labels = []
-    for label in labels:
-        if label not in unique_labels:
-            unique_labels.append(label)
-
-    class_avg = {}
-    for label in unique_labels:
-        index = np.full(len(labels), False)
-        for i in range(len(labels)):
-            if labels[i] == label:
-                index[i] = True
-        class_data = features[index, :]
-        class_avg[label] = np.average(np.ma.masked_invalid(class_data), axis=0)
-
-    return class_avg
+    return features_np, labels_lst, num_invalid
 
 def resample_data(dset, features, labels):
     """
@@ -281,28 +264,3 @@ def drop_classes(features, labels, classes_to_drop):
 
     print('Done dropping.  Shape of data %s -- Size of labels %d' % (str(features.shape), len(labels)))
     return features, labels
-
-
-def save_class_hist(samples_dict: dict, name: str):
-    """
-    Saves the histogram for the specified distribution.  Useful for comparing class distribution during preprocessing
-    :param samples_dict: The dictionary containing class name as the key and the number of samples as the value
-    :param name: Unique name for savefile name.
-    :return: None
-    """
-    classes = samples_dict.keys()
-    samples = []
-    for class_name in classes:
-        samples.append(samples_dict[class_name])
-
-    plt.clf()
-    plt.bar(classes, samples)
-    plt.title('Class Distribution')
-    plt.ylabel('Num Samples')
-    plt.xlabel('Class Name')
-    plt.xticks(rotation=90)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.rc('font', size=48)
-    plt.savefig(os.path.join('./figures/', '%s.png' % name))  # TODO: Update to use specified output directory
-    plt.clf()

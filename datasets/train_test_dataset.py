@@ -12,7 +12,7 @@ from sklearn.preprocessing import RobustScaler
 class TrainTestDataset():
     """
     Dataset for train test setting used to evaluate model training and testing
-    w/o transfer or continual learning
+    on two datasets w/o transfer or continual learning
     """
     def __init__(self, train_set, test_set, train_path, test_path, train_pkl_path, test_pkl_path, include_categorical):
         # Load in train and test sets
@@ -20,11 +20,12 @@ class TrainTestDataset():
         self.features_test, self.labels_test = load_data(test_set + '-test', test_path, test_pkl_path, include_categorical, resample=False)
 
         # Remove classes uncommon between train and test sets
-        _, train_idx, test_idx = np.intersect1d(self.labels_train, self.labels_test, return_indices=True)
-        self.features_train = np.take(self.features_train, train_idx)
-        self.labels_train = np.take(self.labels_train, train_idx)
-        self.features_test = np.take(self.features_test, test_idx)
-        self.labels_test = np.take(self.labels_test, test_idx)
+        train_idx = [i for i, x in enumerate(self.labels_train) if x in self.labels_test]
+        test_idx = [i for i, x in enumerate(self.labels_test) if x in self.labels_train]
+        self.features_train = np.take(self.features_train, train_idx, axis=0)
+        self.labels_train = np.take(self.labels_train, train_idx, axis=0).tolist()
+        self.features_test = np.take(self.features_test, test_idx, axis=0)
+        self.labels_test = np.take(self.labels_test, test_idx, axis=0).tolist()
         
         # Save to pickle files
         if not os.path.exists(train_pkl_path):

@@ -12,74 +12,20 @@ from utils.data_preprocessing import process_features, remove_invalid, resample_
 
 class TransferDataset():
     """
-    Dataset for transfer learning setting used to evaluate transfer of knowledge
-    from A to B (or B to A).
+    Dataset for transfer learning setting used to evaluate feature freezing from
+    one dataset to another
     """
-    def __init__(self, a_set, b_set, a_path, b_path, a_pkl_path, b_pkl_path, include_categorical):
+    def __init__(self, dset, data_path, pkl_path, include_categorical):
         self.a_features_train, \
             self.a_features_test, \
                 self.a_labels_train, \
-                    self.a_labels_test = load_data(a_set + '-a', a_path, a_pkl_path, include_categorical)
-        self.b_features_train, \
-            self.b_features_test, \
-                self.b_labels_train, \
-                    self.b_labels_test  = load_data(b_set + '-b', b_path, b_pkl_path, include_categorical) 
+                    self.a_labels_test = load_data(dset + '-transfer', data_path, pkl_path, include_categorical)
 
-    def get_a_dataset(self, model='mlp'):
+    def get_dataset(self, model='mlp'):
         # Normalize train and test data
         scale = RobustScaler(quantile_range=(5,95)).fit(self.a_features_train)
         features_train = scale.transform(self.a_features_train)
         features_test = scale.transform(self.a_features_test)
-
-        # Create pytorch datasets for data only
-        features_train = torch.tensor(features_train)
-        features_test = torch.tensor(features_test)
-
-        # Reshape input features for CNN
-        if model == 'cnn':
-            features_train = features_train.reshape(len(features_train), features_train.shape[1], 1)
-            features_test = features_test.reshape(len(features_test), features_test.shape[1], 1)
-            features_train.shape, features_test.shape
-
-        # Label encoding
-        label_encoding = {}
-        value = 0
-        for label in labels_test:
-            if label not in label_encoding:
-                label_encoding[label] = value
-                value += 1
-        
-        labels_idx_train = []
-        for i in range(len(labels_train)):
-            label = labels_train[i]
-            value = label_encoding[label]
-            labels_idx_train.append(value)
-
-        labels_idx_test = []
-        for i in range(len(labels_test)):
-            label = labels_test[i]
-            value = label_encoding[label]
-            labels_idx_test.append(value)
-
-        labels_train = torch.tensor(labels_idx_train)
-        labels_test = torch.tensor(labels_idx_test)
-        classes = list(label_encoding.keys())
-
-        # Create pytorch datasets with labels
-        dataset_train = TensorDataset(features_train, labels_train)
-        dataset_test = TensorDataset(features_test, labels_test)
-
-        # Define classes
-        dataset_train.classes = classes
-        dataset_test.classes = classes
-
-        return dataset_train, dataset_test
-    
-    def get_b_dataset(self, model='mlp'):
-        # Normalize train and test data
-        scale = RobustScaler(quantile_range=(5,95)).fit(self.b_features_train)
-        features_train = scale.transform(self.b_features_train)
-        features_test = scale.transform(self.b_features_test)
 
         # Create pytorch datasets for data only
         features_train = torch.tensor(features_train)
